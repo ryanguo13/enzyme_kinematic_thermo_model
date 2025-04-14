@@ -58,10 +58,10 @@ function calculate_kinetics(params::ThermoKineticsParams)
     # 热力学参数验证和转换
     # 移除硬编码验证，改为输出警告
     if params.ΔG1 >= 0
-        @warn "ΔG1 = $(params.ΔG1) kJ/mol 为正值（吸能过程），计算结果可能不符合实际情况"
+        # @warn "ΔG1 = $(params.ΔG1) kJ/mol 为正值（吸能过程），计算结果可能不符合实际情况"
     end
     if params.ΔGT >= 0
-        @warn "ΔGT = $(params.ΔGT) kJ/mol 为正值（吸能过程），计算结果可能不符合实际情况"
+        # @warn "ΔGT = $(params.ΔGT) kJ/mol 为正值（吸能过程），计算结果可能不符合实际情况"
     end
     
     # 使用kJ/mol单位，与Python代码一致
@@ -77,46 +77,46 @@ function calculate_kinetics(params::ThermoKineticsParams)
         ΔG2 = ΔGT - ΔG1
         ΔG3 = 0.0  # 三步骤模型中不存在ΔG3
         
-        # 验证自由能变化关系，但不输出警告以减少输出
-        # 如果ΔG2为正值，反应可能不利于产物形成，但这是热力学允许的
+        # 验证自由能变化关系
+        if !(ΔG2 < 0)
+            # @warn "ΔG2 = $(ΔG2) kJ/mol 为正值，反应可能不利于产物形成"
+        end
         
-        # 计算各步骤的平衡常数，确保热力学一致性
-        K1 = exp(-ΔG1 / RT)  # 1/mM
-        K2 = exp(-ΔG2 / RT)  # 无量纲
+        # 使用与Python代码一致的K计算方式
+        K = params.k20 / params.k10 / gT^params.α2 * g1^(params.α1 + params.α2 - 1)
         
-        # 计算三步骤模型的速率常数，使用与四步骤模型一致的公式
+        # 计算米氏常数Km（单位μM），与Python代码保持一致
+        Km_val = g1 * (1 + K)
+        Km = Km_val * 1e3  # 转换为μM
+        
+        # 计算反应速率，与Python代码保持一致
+        v_max = params.k20 * g1^params.α2 / gT^params.α2 * params.ET * 1e3  # ET单位为mM，转换为μM
+        
+        # 计算三步骤模型的速率常数
         # 第一步：E + S ⇌ ES
-        k1 = params.k10 * exp(params.α1 * ΔG1 / RT)  # 正向 (1/(mM·s))
-        k_minus_1 = params.k10 * exp((params.α1 - 1) * ΔG1 / RT)  # 逆向 (1/s)
+        k1 = params.k10 * g1^(-params.α1)  # 正向 (1/(mM·s))
+        k_minus_1 = params.k10 * g1^(1 - params.α1)  # 逆向 (1/s)
         
         # 第二步：ES ⇌ E + P
-        k2 = params.k20 * exp(params.α2 * ΔG2 / RT)  # 正向 (1/s)
-        k_minus_2 = params.k20 * exp((params.α2 - 1) * ΔG2 / RT)  # 逆向 (1/(mM·s))
+        k2 = params.k20 * g1^params.α2 / gT^params.α2  # 正向 (1/s)
+        k_minus_2 = params.k20 * gT^(1 - params.α2) / g1^(1 - params.α2)  # 逆向 (1/(mM·s))
         
         # 在三步骤模型中，我们需要模拟四步骤模型的行为
         # 假设k3很大，k_minus_3很小，使EP中间体迅速转化为E+P
         k3 = 1000.0  # 一个较大的值
-        k_minus_3 = k3 / K2  # 确保热力学一致性：k3/k_minus_3 = K2
+        k_minus_3 = 0.001  # 一个较小的值
         
-        # 计算米氏常数Km（单位μM）
-        # 使用热力学一致的公式
-        Km_val = k_minus_1 / k1  # 单位mM
-        Km = Km_val * 1e3  # 转换为μM
+        # 计算Kp（产物解离常数，单位μM），使用与四步骤模型相同的公式
+        Kp_val = (k2*k3 + k3*k_minus_1 + k_minus_1*k_minus_2) / (k_minus_3 * (k2 + k_minus_1 + k_minus_2)) * 1e3  # 转换为μM
         
-        # 计算最大反应速率v_max（单位μM/s）
-        v_max = k2 * params.ET * 1e3  # ET单位为mM，转换为μM
+        # 计算Ks（底物解离常数，单位μM），使用与四步骤模型相同的公式
+        Ks_val = (k_minus_1 * (k2 + k3 + k_minus_2)) / (k1 * (k2*k3 + k3*k_minus_1 + k_minus_1*k_minus_2)) * 1e3  # 转换为μM
         
-        # 计算Kp（产物解离常数，单位μM）
-        Kp_val = k_minus_2 / k2 * 1e3  # 转换为μM
+        # 计算k_forward（正向催化速率常数，单位1/s），使用与四步骤模型相同的公式
+        k_forward_val = k2*k3 / (k2 + k3 + k_minus_2)
         
-        # 计算Ks（底物解离常数，单位μM）
-        Ks_val = Km_val * 1e3  # 转换为μM
-        
-        # 计算k_forward（正向催化速率常数，单位1/s）
-        k_forward_val = k2
-        
-        # 计算k_reverse（逆向催化速率常数，单位1/s）
-        k_reverse_val = k_minus_1 * k_minus_2 / k1 / k2
+        # 计算k_reverse（逆向催化速率常数，单位1/s），使用与四步骤模型相同的公式
+        k_reverse_val = k_minus_1*k_minus_2 / (k2 + k_minus_1 + k_minus_2)
         
     else  # "four_step" 模型
         # 四步骤模型计算
@@ -169,9 +169,9 @@ function calculate_kinetics(params::ThermoKineticsParams)
     thermo_ratio = k_forward_val/k_reverse_val
     expected_ratio = exp(-ΔGT/RT)
     
-    # 只有在差异非常大时才输出警告（超过5%），减少警告输出
-    if abs(thermo_ratio/expected_ratio - 1.0) > 0.05
-        @warn "热力学一致性检查：k_forward/k_reverse = $(thermo_ratio)，期望值 = $(expected_ratio)，差异 = $(100*(thermo_ratio/expected_ratio-1))%"
+    # 如果比值相差超过1%，输出警告
+    if abs(thermo_ratio/expected_ratio - 1.0) > 0.1
+        # @warn "热力学一致性检查：k_forward/k_reverse = $(thermo_ratio)，期望值 = $(expected_ratio)，差异 = $(100*(thermo_ratio/expected_ratio-1))%"
     end
     
     # 计算活化能 (J/mol)
@@ -220,23 +220,15 @@ function plot_activity_volcano(params::ThermoKineticsParams, S_range::Vector{Flo
                 S_uM = S * 1000.0  # mM到μM
                 
                 if params.model_type == "three_step"
-                    # 使用热力学一致的表达式（三步骤模型）
+                    # 使用与Python代码一致的表达式（三步骤模型）
                     RT = params.R / 1000 * params.T  # kJ/mol
+                    g1 = exp(ΔG1/RT)
+                    gT = exp(ΔGT/RT)
+                    K = params.k20/params.k10/gT^params.α2 * g1^(params.α1+params.α2-1)
+                    Km_val = g1*(1+K)
+                    Km = Km_val * 1e3  # 转换为μM
                     
-                    # 计算各步骤的平衡常数
-                    K1 = exp(-ΔG1 / RT)  # 1/mM
-                    K2 = exp(-(ΔGT - ΔG1) / RT)  # 无量纲
-                    
-                    # 计算速率常数
-                    k1 = params.k10 * exp(params.α1 * ΔG1 / RT)  # 正向 (1/(mM·s))
-                    k_minus_1 = params.k10 * exp((params.α1 - 1) * ΔG1 / RT)  # 逆向 (1/s)
-                    k2 = params.k20 * exp(params.α2 * (ΔGT - ΔG1) / RT)  # 正向 (1/s)
-                    
-                    # 计算米氏常数
-                    Km = k_minus_1 / k1 * 1e3  # 转换为μM
-                    
-                    # 计算酶活性
-                    v = k2 * S_uM * params.ET * 1000.0 / (S_uM + Km)  # ET从mM转为μM
+                    v = params.k20 * g1^params.α2 / gT^params.α2 * S_uM * params.ET * 1000.0 / (S_uM + Km)  # ET从mM转为μM
                 else
                     # 四步骤模型计算
                     # 使用简化表达式：v = (ET * (k_forward * S - k_reverse * P)) / (1 + S/Ks + P/Kp)

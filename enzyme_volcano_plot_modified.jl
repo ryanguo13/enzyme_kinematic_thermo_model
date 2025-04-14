@@ -22,8 +22,8 @@ substrate_concentrations = [0.1, 1.0, 10.0, 100.0]
 p_three = plot_activity_volcano(params, substrate_concentrations)
 
 # 保存三步骤模型火山图
-savefig(p_three, "enzyme_activity_volcano_three_step.png")
-println("三步骤模型火山图已保存为 enzyme_activity_volcano_three_step.png")
+savefig(p_three, "result/enzyme_activity_volcano_three_step.png")
+println("三步骤模型火山图已保存为 result/enzyme_activity_volcano_three_step.png")
 
 # 更新参数为四步骤模型
 params_four = ThermoKineticsParams(
@@ -43,15 +43,15 @@ params_four = ThermoKineticsParams(
 p_four = plot_activity_volcano(params_four, substrate_concentrations)
 
 # 保存四步骤模型火山图
-savefig(p_four, "enzyme_activity_volcano_four_step.png")
-println("四步骤模型火山图已保存为 enzyme_activity_volcano_four_step.png")
+savefig(p_four, "result/enzyme_activity_volcano_four_step.png")
+println("四步骤模型火山图已保存为 result/enzyme_activity_volcano_four_step.png")
 
 # 绘制三步骤和四步骤模型的对比图
 p_comparison = compare_volcano_plots(substrate_concentrations, params)
 
 # 保存对比图
-savefig(p_comparison, "enzyme_activity_volcano_comparison.png")
-println("三步骤和四步骤模型的对比图已保存为 enzyme_activity_volcano_comparison.png")
+savefig(p_comparison, "result/enzyme_activity_volcano_comparison.png")
+println("三步骤和四步骤模型的对比图已保存为 result/enzyme_activity_volcano_comparison.png")
 
 # 输出参数设置，便于比对
 println("\n参数设置:")

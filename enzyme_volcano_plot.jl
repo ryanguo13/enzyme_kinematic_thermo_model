@@ -20,5 +20,5 @@ substrate_concentrations = [0.1, 1.0, 10.0, 100.0]
 p = plot_activity_volcano(params, substrate_concentrations)
 
 # 保存图像
-savefig(p, "enzyme_activity_volcano.svg")
-println("火山图已保存为 enzyme_activity_volcano.svg")
+savefig(p, "result/enzyme_activity_volcano.svg")
+println("火山图已保存为 result/enzyme_activity_volcano.svg")

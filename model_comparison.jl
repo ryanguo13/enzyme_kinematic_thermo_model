@@ -189,8 +189,8 @@ function compare_models()
     # display(p)
     
     # 保存图表
-    savefig(p, "model_comparison.png")
-    println("\nChart generated and saved: model_comparison.png")
+    savefig(p, "result/model_comparison.png")
+    println("\nChart generated and saved: result/model_comparison.png")
     
     return p
 end
