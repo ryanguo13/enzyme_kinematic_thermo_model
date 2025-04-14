@@ -192,8 +192,6 @@ function plot_activity_volcano(params::ThermoKineticsParams, S_range::Vector{Flo
     
     # 准备存储结果
     v_matrix = zeros(length(ΔG1_range), length(ΔGT_range), length(S_range))
-    # 准备存储Km = [S]线的数据
-    km_lines = []
     
     # 计算各点活性
     for (i, ΔG1) in enumerate(ΔG1_range)
@@ -244,83 +242,26 @@ function plot_activity_volcano(params::ThermoKineticsParams, S_range::Vector{Flo
             end
         end
     end
-    
-    # 计算Km = [S]线
-    # 对每个底物浓度，计算满足Km = [S]的ΔG1和ΔGT关系
-    for (k, S) in enumerate(S_range)
-        km_line_points = []
-        for ΔG1 in ΔG1_range
-            # 根据热力学关系计算当Km = S时对应的ΔGT
-            RT = params.R / 1000 * params.T  # kJ/mol
-            
-            # 注意：S单位为mM，需要转换为μM以匹配Km单位
-            S_uM = S * 1000.0  # 从mM转换为μM
-            
-            if params.model_type == "three_step"
-                # 三步骤模型的Km = [S]线
-                # 求解方程：S*1000 = g1*(1+K)，其中K = k20/k10/gT^α2 * g1^(α1+α2-1)
-                # 变形为：ΔGT = RT * ln((S*1000/g1 - 1)/(k20/k10) * g1^(1-α1-α2))
-                g1 = exp(ΔG1/RT)
-                term1 = S_uM/g1 - 1
-                
-                if term1 > 0
-                    term2 = term1 / (params.k20/params.k10) * g1^(1-params.α1-params.α2)
-                    ΔGT_val = RT * log(term2)
-                    
-                    # 只在合理范围内添加点
-                    if ΔGT_val >= -40.0 && ΔGT_val <= 40.0
-                        push!(km_line_points, (ΔG1, ΔGT_val))
-                    end
-                end
-            else  # 四步骤模型
-                # 四步骤模型的Km = [S]线
-                # 在四步骤模型中，Km = Ks*(1 + [P]/Kp)
-                # 假设[P] = 0，则Km = Ks
-                # 当Ks = S时，我们需要求解ΔGT
-                
-                # 创建临时参数对象计算Ks
-                temp_params = ThermoKineticsParams(
-                    ΔGT = 0.0,  # 临时值，会在循环中更新
-                    ΔG1 = ΔG1,
-                    R = params.R,
-                    T = params.T,
-                    α1 = params.α1,
-                    α2 = params.α2,
-                    k10 = params.k10,
-                    k20 = params.k20,
-                    ET = params.ET,
-                    model_type = "four_step"
-                )
-                
-                # 尝试不同的ΔGT值，找到使Ks ≈ S的值
-                for test_ΔGT in LinRange(-40.0, 40.0, 50)
-                    temp_params = ThermoKineticsParams(
-                        ΔGT = test_ΔGT,
-                        ΔG1 = ΔG1,
-                        R = params.R,
-                        T = params.T,
-                        α1 = params.α1,
-                        α2 = params.α2,
-                        k10 = params.k10,
-                        k20 = params.k20,
-                        ET = params.ET,
-                        model_type = "four_step"
-                    )
-                    
-                    res = calculate_kinetics(temp_params)
-                    Ks = res.Ks / 1000.0  # 转换为mM以与S比较
-                    
-                    # 如果Ks接近S，则添加点
-                    if abs(log10(Ks) - log10(S)) < 0.1
-                        push!(km_line_points, (ΔG1, test_ΔGT))
-                        break
-                    end
-                end
-            end
-        end
-        push!(km_lines, km_line_points)
+
+    # 计算 estimate_opt_dG1 (Km = [S] 虚线)，匹配 Python figures.py 的逻辑
+    estimate_opt_dG1_lines = []
+    RT = params.R / 1000 * params.T # kJ/mol
+    gT_vals = exp.(ΔGT_range ./ RT) # 计算 ΔGT 范围对应的 gT
+
+    # 计算 estimate_K (假设 α1=α2=0.5, k10=1, k20=1)
+    # estimate_K = k20/k10/gT^0.5 = 1.0 ./ sqrt.(gT_vals)
+    estimate_K_vals = 1.0 ./ sqrt.(gT_vals)
+
+    for S in S_range # S 的单位是 mM，与 Python get_Km_v 中 S 的用法一致
+        # 计算 estimate_opt_g1 = S / (1 + estimate_K)
+        estimate_opt_g1_vals = S ./ (1.0 .+ estimate_K_vals)
+
+        # 计算 estimate_opt_dG1 = RT * log(estimate_opt_g1)
+        estimate_opt_dG1_for_S = map(g1_val -> g1_val > 0 ? RT * log(g1_val) : NaN, estimate_opt_g1_vals)
+        
+        push!(estimate_opt_dG1_lines, estimate_opt_dG1_for_S)
     end
-    
+
     # 绘制火山图
     plots = []
     labels = ["a", "b", "c", "d"]  # 子图标签
@@ -331,27 +272,34 @@ function plot_activity_volcano(params::ThermoKineticsParams, S_range::Vector{Flo
     for (k, S) in enumerate(S_range)
         # 使用jet配色方案，与论文中的图像一致
         p = contourf(ΔG1_range, ΔGT_range, v_matrix[:,:,k]',
-                     xlabel="ΔG₁ [kJ/mol]", ylabel="ΔG_T [kJ/mol]",
+                     xlabel="ΔG1 [kJ/mol]", ylabel="ΔG_T [kJ/mol]", # Changed ΔG₁ to ΔG1
                      title="[S] = $(S) mM",  # 添加单位并使格式更清晰
                      color=:jet, levels=50,  # 增加等高线数量以获得更平滑的过渡
                      linewidth=0.5, contour_labels=false,
                      clims=clim)  # 设置颜色范围
         
-        # 添加子图标签
-        annotate!(p, -18, 35, text(labels[k], :left, 14, :bold))
-        
-        # 绘制Km = [S]线
-        if !isempty(km_lines[k])
-            x_vals = [point[1] for point in km_lines[k]]
-            y_vals = [point[2] for point in km_lines[k]]
-            # 只在第一个子图显示标签，其他子图不显示标签
-            if k == 1
-                plot!(p, x_vals, y_vals, line=(:black, :dash, 2), label="Km = [S]")
-            else
-                plot!(p, x_vals, y_vals, line=(:black, :dash, 2), label="")
-            end
-        end
-        
+        # 添加子图标签 (removed bold)
+        annotate!(p, -18, 35, text(labels[k], :left, 14)) # 移除粗体
+
+        # 绘制 Km = [S] 虚线 (使用 estimate_opt_dG1)
+        # 过滤掉 NaN 和超出绘图范围的值
+        valid_indices = .!isnan.(estimate_opt_dG1_lines[k])
+        dG1_line_vals = estimate_opt_dG1_lines[k][valid_indices]
+        dGT_line_vals = ΔGT_range[valid_indices]
+
+        # 确保线在 ΔG1 轴的范围内
+        plot_indices = (dG1_line_vals .>= ΔG1_range[1]) .& (dG1_line_vals .<= ΔG1_range[end])
+        dG1_to_plot = dG1_line_vals[plot_indices]
+        dGT_to_plot = dGT_line_vals[plot_indices]
+
+        # 只在第一个子图显示标签
+        label_text = (k == 1) ? "Km = [S] (est.)" : ""
+        plot!(p, dG1_to_plot, dGT_to_plot, line=(:black, :dash, 2), label=label_text)
+
+        # 添加 [S] 值的文本标签，模仿 Python 图例
+        s_label = S >= 1 ? string(Int(S)) : string(S) # 格式化标签
+        annotate!(p, ΔG1_range[end] - 1, ΔGT_range[1] + 6, text("[S] = $(s_label)", :right, 12)) # 调整位置和大小
+
         push!(plots, p)
     end
     

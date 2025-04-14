@@ -1,4 +1,4 @@
-# 使用PyCall调用Python代码并与Julia模型进行比较
+# Using PyCall to compare Python code with Julia models
 
 using Plots
 using Measures
@@ -7,84 +7,87 @@ using Markdown
 using DataFrames
 using PyCall
 
-# 导入本地Julia模块
+# Set default font to avoid GKS errors
+default(fontfamily="Helvetica") # Changed from Arial to Helvetica
+
+# Import local Julia module
 include("thermo_kinetics_modified.jl")
 
-# 导入Python模块
+# Import Python module
 push!(PyVector(pyimport("sys")["path"]), "SI_for_Publications/2023_Nature_Communications_Optimum_Km")
 py_enzyme_kinetics = pyimport("enzyme_kinetics")
 
-# 使用PyCall直接调用Python代码的计算逻辑
+# Use PyCall to directly call Python code calculation logic
 function python_model_calculation(dG1::Float64, dGT::Float64, S::Float64)
-    # 直接调用Python模块中的get_Km_v函数
-    # 参数说明：dG1, dGT, S, k10=1, k20=1, a1=0.5, a2=0.5
-    # 返回值：Km, v, estimate_opt_Km, true_opt_Km, estimate_opt_dG1, true_opt_dG1
+    # Directly call get_Km_v function from Python module
+    # Parameters: dG1, dGT, S, k10=1, k20=1, a1=0.5, a2=0.5
+    # Returns: Km, v, estimate_opt_Km, true_opt_Km, estimate_opt_dG1, true_opt_dG1
     
-    # 创建Python的numpy数组
+    # Create Python numpy array
     np = pyimport("numpy")
     
-    # 根据Python函数的实现，创建正确格式的输入参数
-    # dG1和dGT需要是二维数组，形状为(n,1)，其中n是不同值的数量
+    # Create input parameters in correct format according to Python function implementation
+    # dG1 and dGT need to be 2D arrays with shape (n,1), where n is number of different values
     py_dG1 = np.array([[dG1]])
     py_dGT = np.array([[dGT]])
     
-    # 直接调用Python原始函数，确保使用相同的参数
-    # 注意：Python的get_Km_v函数返回的Km单位是mM，v单位是mM/s
-    # 根据Python代码，参数顺序为：dG1, dGT, S, k10=1, k20=1, a1=0.5, a2=0.5
+    # Directly call original Python function with same parameters
+    # Note: Python's get_Km_v function returns Km in mM and v in mM/s
+    # According to Python code, parameter order is: dG1, dGT, S, k10=1, k20=1, a1=0.5, a2=0.5
     result = py_enzyme_kinetics.get_Km_v(py_dG1, py_dGT, S, k10=1.0, k20=1.0, a1=0.5, a2=0.5)
     
-    # 从返回结果中提取Km和v
-    # Python函数返回6个值：Km, v, estimate_opt_Km, true_opt_Km, estimate_opt_dG1, true_opt_dG1
-    # 在PyCall中，Python的返回值是一个元组，可以通过索引访问
-    Km_py = result[1]  # 第一个返回值是Km (mM)
-    v_py = result[2]   # 第二个返回值是v (mM/s)
+    # Extract Km and v from return results
+    # Python function returns 6 values: Km, v, estimate_opt_Km, true_opt_Km, estimate_opt_dG1, true_opt_dG1
+    # In PyCall, Python's return value is a tuple that can be accessed by index
+    Km_py = result[1]  # 第一個返回值是 Km (mM)
+    v_py = result[2]   # 第二個返回值是 v (mM/s)
     
-    # 检查返回值的类型和形状
-    println("Python返回值类型: Km_py类型=$(typeof(Km_py)), v_py类型=$(typeof(v_py))")
+    # Check return value types and shapes
+    println("Python return value types: Km_py type=$(typeof(Km_py)), v_py type=$(typeof(v_py))")
     
-    # 安全地提取数值并转换单位：mM -> μM
-    # 打印返回值的形状和类型以便调试
-    println("Km_py形状: $(size(Km_py)), v_py形状: $(size(v_py))")
+    # Safely extract values and convert units: mM -> μM
+    # Print return value shapes and types for debugging
+    println("Km_py shape: $(size(Km_py)), v_py shape: $(size(v_py))")
     
-    # 从返回的矩阵中安全提取值
-    # 根据Python代码分析，返回值应该是形状为(1,1)的numpy数组
-    # 在PyCall中会被转换为Julia的Array类型
+    # Safely extract values from returned matrix
+    # Based on Python code analysis, return value should be numpy array with shape (1,1)
+    # Will be converted to Julia Array type in PyCall
     Km = 0.0
     v = 0.0                             
-    # 根据返回值的类型和形状进行不同的处理
+    # Handle different return value types and shapes
     if isa(Km_py, Array) && length(size(Km_py)) == 2
-        # 如果是二维数组，直接提取第一个元素
-        Km = Km_py[1, 1] * 1e3  # 转换为μM
+        # If 2D array, directly extract first element
+        Km = Km_py[1, 1] * 1e3  # Convert to μM
     elseif isa(Km_py, Array) && length(size(Km_py)) == 1
-        # 如果是一维数组，提取第一个元素
-        Km = Km_py[1] * 1e3  # 转换为μM
+        # If 1D array, extract first element
+        Km = Km_py[1] * 1e3  # Convert to μM
     else
-        # 如果是标量，直接使用
-        Km = Km_py * 1e3  # 转换为μM
+        # If scalar, use directly
+        Km = Km_py * 1e3  # Convert to μM
     end
     
     if isa(v_py, Array) && length(size(v_py)) == 2
-        # 如果是二维数组，直接提取第一个元素
-        v = v_py[1, 1] * 1e3  # 转换为μM/s
+        # If 2D array, directly extract first element
+        v = v_py[1, 1] * 1e3  # Convert to μM/s
     elseif isa(v_py, Array) && length(size(v_py)) == 1
-        # 如果是一维数组，提取第一个元素
-        v = v_py[1] * 1e3  # 转换为μM/s
+        # If 1D array, extract first element
+        v = v_py[1] * 1e3  # Convert to μM/s
     else
-        # 如果是标量，直接使用
-        v = v_py * 1e3  # 转换为μM/s
+        # If scalar, use directly
+        v = v_py * 1e3  # Convert to μM/s
     end
     
-    println("Python原始计算结果: Km = $Km μM, v = $v μM/s")
+    println("Python original calculation results: Km = $Km μM, v = $v μM/s")
     
     return Km, v
 end
 
-# 定义比较函数
+# Define comparison function
 function compare_models(ΔGT::Float64, ΔG1::Float64, S_values::Vector{Float64})
-    println("\n开始比较三步骤模型和四步骤模型...")
-    println("参数设置: ΔGT = $ΔGT kJ/mol, ΔG1 = $ΔG1 kJ/mol")
+    println("\nStarting comparison of three-step and four-step models...")
+    println("Parameter settings: ΔGT = $ΔGT kJ/mol, ΔG1 = $ΔG1 kJ/mol")
     
-    # 创建结果数据框
+    # Create results DataFrame
     results_df = DataFrame(
         S_mM = Float64[],
         S_uM = Float64[],
@@ -99,12 +102,12 @@ function compare_models(ΔGT::Float64, ΔG1::Float64, S_values::Vector{Float64})
         Julia_Four_Step_log10v = Float64[]
     )
     
-    # 计算各模型结果
+    # Calculate results for each model
     for S in S_values
-        # 1. 使用Python模型计算 (在Julia中实现)
+        # 1. Use Python model calculation (implemented in Julia)
         py_Km, py_v = python_model_calculation(ΔG1, ΔGT, S)
         
-        # 2. 使用Julia三步骤模型计算
+        # 2. Use Julia three-step model calculation
         julia_three_params = ThermoKineticsParams(
             ΔGT = ΔGT,
             ΔG1 = ΔG1,
@@ -119,16 +122,16 @@ function compare_models(ΔGT::Float64, ΔG1::Float64, S_values::Vector{Float64})
         )
         julia_three_results = calculate_kinetics(julia_three_params)
         julia_three_Km = julia_three_results.Km
-        S_uM = S * 1000.0  # 转换为μM
+        S_uM = S * 1000.0  # Convert to μM
         
-        # 使用与Python代码一致的表达式计算反应速率
-        # 在Python代码中: v = k20*g1^a2/gT^a2*S*ET/(S+Km)
+        # Use reaction rate calculation expression consistent with Python code
+        # In Python code: v = k20*g1^a2/gT^a2*S*ET/(S+Km)
         RT = 8.314 / 1000 * 300.0  # kJ/mol
         g1 = exp(ΔG1/RT)
         gT = exp(ΔGT/RT)
-        julia_three_v = 1.0 * g1^0.5 / gT^0.5 * S_uM * 0.01 * 1000.0 / (S_uM + julia_three_Km)  # ET从mM转为μM
+        julia_three_v = 1.0 * g1^0.5 / gT^0.5 * S_uM * 0.01 * 1000.0 / (S_uM + julia_three_Km)  # Convert ET from mM to μM
         
-        # 3. 使用Julia四步骤模型计算
+        # 3. Use Julia four-step model calculation
         julia_four_params = ThermoKineticsParams(
             ΔGT = ΔGT,
             ΔG1 = ΔG1,
@@ -144,12 +147,12 @@ function compare_models(ΔGT::Float64, ΔG1::Float64, S_values::Vector{Float64})
         julia_four_results = calculate_kinetics(julia_four_params)
         julia_four_Km = julia_four_results.Km
         
-        # 修正四步骤模型的反应速率计算，使用与三步骤模型一致的方法
-        # 四步骤模型中，v = k_forward * ET * S / (1 + S/Ks)
-        # 这等价于 v = v_max * S / (S + Km)，其中Km = Ks，v_max = k_forward * ET
+        # Correct four-step model reaction rate calculation to be consistent with three-step model
+        # In four-step model: v = k_forward * ET * S / (1 + S/Ks)
+        # This is equivalent to v = v_max * S / (S + Km), where Km = Ks, v_max = k_forward * ET
         julia_four_v = julia_four_results.k_forward * julia_four_params.ET * 1000.0 * S_uM / (S_uM + julia_four_Km)
         
-        # 添加到数据框
+        # Add to DataFrame
         push!(results_df, (
             S,                                  # S_mM
             S_uM,                              # S_uM
@@ -168,75 +171,75 @@ function compare_models(ΔGT::Float64, ΔG1::Float64, S_values::Vector{Float64})
     return results_df
 end
 
-# 绘制比较图表
+# Plot comparison charts
 function plot_comparison(results_df::DataFrame)
-    # 1. 绘制Km比较图
+    # 1. Plot Km comparison
     p1 = plot(results_df.S_mM, results_df.Python_Km, 
-        label="Python三步骤", 
+        label="Python Three-Step", 
         marker=:circle, 
         linewidth=2,
-        xlabel="底物浓度 [mM]", 
+        xlabel="Substrate Concentration [mM]", 
         ylabel="Km [μM]",
-        title="米氏常数(Km)比较",
+        title="Michaelis Constant (Km) Comparison",
         legend=:topleft,
         xscale=:log10,
         yscale=:log10)
     plot!(p1, results_df.S_mM, results_df.Julia_Three_Step_Km, 
-        label="Julia三步骤", 
+        label="Julia Three-Step", 
         marker=:square, 
         linewidth=2)
     plot!(p1, results_df.S_mM, results_df.Julia_Four_Step_Km, 
-        label="Julia四步骤", 
+        label="Julia Four-Step", 
         marker=:diamond, 
         linewidth=2)
     
-    # 2. 绘制反应速率比较图
+    # 2. Plot reaction rate comparison
     p2 = plot(results_df.S_mM, results_df.Python_v, 
-        label="Python三步骤", 
+        label="Python Three-Step", 
         marker=:circle, 
         linewidth=2,
-        xlabel="底物浓度 [mM]", 
-        ylabel="反应速率 [μM/s]",
-        title="反应速率比较",
+        xlabel="Substrate Concentration [mM]", 
+        ylabel="Reaction Rate [μM/s]",
+        title="Reaction Rate Comparison",
         legend=:bottomright,
         xscale=:log10)
     plot!(p2, results_df.S_mM, results_df.Julia_Three_Step_v, 
-        label="Julia三步骤", 
+        label="Julia Three-Step", 
         marker=:square, 
         linewidth=2)
     plot!(p2, results_df.S_mM, results_df.Julia_Four_Step_v, 
-        label="Julia四步骤", 
+        label="Julia Four-Step", 
         marker=:diamond, 
         linewidth=2)
     
-    # 3. 绘制log10(v)比较图
+    # 3. Plot log10(v) comparison
     p3 = plot(results_df.S_mM, results_df.Python_log10v, 
-        label="Python三步骤", 
+        label="Python Three-Step", 
         marker=:circle, 
         linewidth=2,
-        xlabel="底物浓度 [mM]", 
-        ylabel="log10(反应速率) [log10(μM/s)]",
-        title="log10(反应速率)比较",
+        xlabel="Substrate Concentration [mM]", 
+        ylabel="log10(Reaction Rate) [log10(μM/s)]",
+        title="log10(Reaction Rate) Comparison",
         legend=:bottomright,
         xscale=:log10)
     plot!(p3, results_df.S_mM, results_df.Julia_Three_Step_log10v, 
-        label="Julia三步骤", 
+        label="Julia Three-Step", 
         marker=:square, 
         linewidth=2)
     plot!(p3, results_df.S_mM, results_df.Julia_Four_Step_log10v, 
-        label="Julia四步骤", 
+        label="Julia Four-Step", 
         marker=:diamond, 
         linewidth=2)
     
-    # 组合图表
+    # Combine plots
     p = plot(p1, p2, p3, layout=(3,1), size=(800, 900), margin=10mm)
     savefig(p, "result/model_comparison_pycall.png")
     return p
 end
 
-# 绘制火山图比较
+# Plot volcano comparison
 function plot_volcano_comparison(ΔGT::Float64, ΔG1::Float64, S_values::Vector{Float64})
-    # 使用Julia三步骤模型绘制火山图
+    # Use Julia three-step model to plot volcano plot
     params_three = ThermoKineticsParams(
         ΔGT = ΔGT,
         ΔG1 = ΔG1,
@@ -249,12 +252,12 @@ function plot_volcano_comparison(ΔGT::Float64, ΔG1::Float64, S_values::Vector{
         ET = 0.01,
         model_type = "three_step"
     )
-    # 火山图需要使用固定的4个S值，与thermo_kinetics_modified.jl中的实现匹配
-    fixed_S_values = [0.1, 1.0, 10.0, 100.0]  # mM，与原始代码一致
+    # Volcano plot needs fixed 4 S values, matching implementation in thermo_kinetics_modified.jl
+    fixed_S_values = [0.1, 1.0, 10.0, 100.0]  # mM, consistent with original code
     volcano_three = plot_activity_volcano(params_three, fixed_S_values)
     savefig(volcano_three, "result/enzyme_activity_volcano_three_step.png")
     
-    # 使用Julia四步骤模型绘制火山图
+    # Use Julia four-step model to plot volcano plot
     params_four = ThermoKineticsParams(
         ΔGT = ΔGT,
         ΔG1 = ΔG1,
@@ -273,101 +276,101 @@ function plot_volcano_comparison(ΔGT::Float64, ΔG1::Float64, S_values::Vector{
     return volcano_three, volcano_four
 end
 
-# 生成Markdown报告
+# Generate Markdown report
 function generate_markdown_report(results_df::DataFrame, ΔGT::Float64, ΔG1::Float64)
-    # 创建Markdown文本
+    # Create Markdown text
     md_text = """
-    # Python与Julia模型比较报告
+    # Python and Julia Model Comparison Report
     
-    ## 参数设置
+    ## Parameter Settings
     
-    - ΔGT (总反应自由能变化): $(ΔGT) kJ/mol
-    - ΔG1 (酶-底物复合物自由能变化): $(ΔG1) kJ/mol
-    - 温度 (T): 300 K
-    - 气体常数 (R): 8.314 J/(mol·K)
-    - α1 (BEP关系敏感系数1): 0.5
-    - α2 (BEP关系敏感系数2): 0.5
-    - k10 (基准速率常数1): 1.0
-    - k20 (基准速率常数2): 1.0
-    - ET (总酶浓度): 0.01 mM
+    - ΔGT (Total Reaction Free Energy Change): $(ΔGT) kJ/mol
+    - ΔG1 (Enzyme-Substrate Complex Free Energy Change): $(ΔG1) kJ/mol
+    - Temperature (T): 300 K
+    - Gas Constant (R): 8.314 J/(mol·K)
+    - α1 (BEP Relationship Sensitivity Coefficient 1): 0.5
+    - α2 (BEP Relationship Sensitivity Coefficient 2): 0.5
+    - k10 (Base Rate Constant 1): 1.0
+    - k20 (Base Rate Constant 2): 1.0
+    - ET (Total Enzyme Concentration): 0.01 mM
     
-    ## 模型比较
+    ## Model Comparison
     
-    本报告比较了三种模型的计算结果：
-    1. Python实现的三步骤模型 (在Julia中重现)
-    2. Julia实现的三步骤模型 (thermo_kinetics_modified.jl)
-    3. Julia实现的四步骤模型 (thermo_kinetics_modified.jl)
+    This report compares three model calculation results:
+    1. Python-implemented three-step model (reproduced in Julia)
+    2. Julia-implemented three-step model (thermo_kinetics_modified.jl)
+    3. Julia-implemented four-step model (thermo_kinetics_modified.jl)
     
-    ## 计算结果
+    ## Calculation Results
     
-    ### 米氏常数 (Km) 比较
+    ### Michaelis Constant (Km) Comparison
     
-    | 底物浓度 [mM] | Python三步骤 Km [μM] | Julia三步骤 Km [μM] | Julia四步骤 Km [μM] |
+    | Substrate Concentration [mM] | Python Three-Step Km [μM] | Julia Three-Step Km [μM] | Julia Four-Step Km [μM] |
     |--------------|---------------------|---------------------|---------------------|
     """
     
-    # 添加Km数据行
+    # Add Km data rows
     for i in 1:nrow(results_df)
         row = results_df[i, :]
         md_text *= @sprintf "| %.3g | %.4g | %.4g | %.4g |\n" row.S_mM row.Python_Km row.Julia_Three_Step_Km row.Julia_Four_Step_Km
     end
     
-    # 添加反应速率比较
+    # Add reaction rate comparison
     md_text *= """
     
-    ### 反应速率 (v) 比较 [μM/s]
+    ### Reaction Rate (v) Comparison [μM/s]
     
-    | 底物浓度 [mM] | Python三步骤 v [μM/s] | Julia三步骤 v [μM/s] | Julia四步骤 v [μM/s] |
+    | Substrate Concentration [mM] | Python Three-Step v [μM/s] | Julia Three-Step v [μM/s] | Julia Four-Step v [μM/s] |
     |--------------|----------------------|----------------------|----------------------|
     """
     
-    # 添加反应速率数据行
+    # Add reaction rate data rows
     for i in 1:nrow(results_df)
         row = results_df[i, :]
         md_text *= @sprintf "| %.3g | %.4g | %.4g | %.4g |\n" row.S_mM row.Python_v row.Julia_Three_Step_v row.Julia_Four_Step_v
     end
     
-    # 添加log10(v)比较
+    # Add log10(v) comparison
     md_text *= """
     
-    ### log10(反应速率) 比较 [log10(μM/s)]
+    ### log10(Reaction Rate) Comparison [log10(μM/s)]
     
-    | 底物浓度 [mM] | Python三步骤 log10(v) | Julia三步骤 log10(v) | Julia四步骤 log10(v) |
+    | Substrate Concentration [mM] | Python Three-Step log10(v) | Julia Three-Step log10(v) | Julia Four-Step log10(v) |
     |--------------|------------------------|------------------------|------------------------|
     """
     
-    # 添加log10(v)数据行
+    # Add log10(v) data rows
     for i in 1:nrow(results_df)
         row = results_df[i, :]
         md_text *= @sprintf "| %.3g | %.4g | %.4g | %.4g |\n" row.S_mM row.Python_log10v row.Julia_Three_Step_log10v row.Julia_Four_Step_log10v
     end
     
-    # 添加图像说明
+    # Add image descriptions
     md_text *= """
     
-    ## 图像比较
+    ## Image Comparison
     
-    ### 1. 模型参数比较图
+    ### 1. Model Parameter Comparison Plot
     
-    ![模型比较图](result/model_comparison_pycall.png)
+    ![Model Comparison Plot](result/model_comparison_pycall.png)
     
-    ### 2. 三步骤模型火山图
+    ### 2. Three-Step Model Volcano Plot
     
-    ![三步骤模型火山图](result/enzyme_activity_volcano_three_step.png)
+    ![Three-Step Model Volcano Plot](result/enzyme_activity_volcano_three_step.png)
     
-    ### 3. 四步骤模型火山图
+    ### 3. Four-Step Model Volcano Plot
     
-    ![四步骤模型火山图](result/enzyme_activity_volcano_four_step.png)
+    ![Four-Step Model Volcano Plot](result/enzyme_activity_volcano_four_step.png)
     
-    ## 结论
+    ## Conclusions
     
-    1. **三步骤模型比较**：Python和Julia实现的三步骤模型结果非常接近，验证了两种实现的一致性。
-    2. **四步骤模型特点**：Julia实现的四步骤模型与三步骤模型相比，在处理复杂反应机制时更为灵活，特别是在考虑产物抑制和多步骤反应时。
-    3. **最佳Km值**：在不同底物浓度下，三步骤模型和四步骤模型预测的最佳Km值存在差异，这反映了模型对反应机制假设的敏感性。
+    1. **Three-Step Model Comparison**: Python and Julia implementations of the three-step model show very close results, validating the consistency between implementations.
+    2. **Four-Step Model Features**: Julia's four-step model implementation is more flexible compared to the three-step model, especially when considering product inhibition and multi-step reactions.
+    3. **Optimal Km Values**: The three-step and four-step models predict different optimal Km values at different substrate concentrations, reflecting the models' sensitivity to reaction mechanism assumptions.
     
     """
     
-    # 写入Markdown文件
+    # Write to Markdown file
     open("result/python_julia_model_comparison_pycall.md", "w") do io
         write(io, md_text)
     end
@@ -375,34 +378,34 @@ function generate_markdown_report(results_df::DataFrame, ΔGT::Float64, ΔG1::Fl
     return md_text
 end
 
-# 主函数
+# Main function
 function main()
-    # 设置参数
+    # Set parameters
     ΔGT = -40.0  # kJ/mol
     ΔG1 = -15.0  # kJ/mol
     S_values = [0.001, 0.01, 0.1, 1.0, 10.0, 100.0]  # mM
     
-    # 比较模型
+    # Compare models
     results_df = compare_models(ΔGT, ΔG1, S_values)
     
-    # 打印结果表格
-    println("\n模型比较结果:")
+    # Print results table
+    println("\nModel comparison results:")
     println(results_df)
     
-    # 绘制比较图表
-    println("\n绘制比较图表...")
+    # Plot comparison charts
+    println("\nPlotting comparison charts...")
     plot_comparison(results_df)
     
-    # 绘制火山图比较
-    println("\n绘制火山图比较...")
+    # Plot volcano comparison
+    println("\nPlotting volcano comparison...")
     plot_volcano_comparison(ΔGT, ΔG1, S_values)
     
-    # 生成Markdown报告
-    println("\n生成Markdown报告...")
+    # Generate Markdown report
+    println("\nGenerating Markdown report...")
     generate_markdown_report(results_df, ΔGT, ΔG1)
     
-    println("\n完成! 请查看生成的图像和报告文件。")
+    println("\nComplete! Please check the generated images and report files.")
 end
 
-# 运行主函数
+# Run main function
 main()

@@ -1,29 +1,29 @@
-# Python与Julia模型比较报告
+# Python and Julia Model Comparison Report
 
-## 参数设置
+## Parameter Settings
 
-- ΔGT (总反应自由能变化): -40.0 kJ/mol
-- ΔG1 (酶-底物复合物自由能变化): -15.0 kJ/mol
-- 温度 (T): 300 K
-- 气体常数 (R): 8.314 J/(mol·K)
-- α1 (BEP关系敏感系数1): 0.5
-- α2 (BEP关系敏感系数2): 0.5
-- k10 (基准速率常数1): 1.0
-- k20 (基准速率常数2): 1.0
-- ET (总酶浓度): 0.01 mM
+- ΔGT (Total Reaction Free Energy Change): -40.0 kJ/mol
+- ΔG1 (Enzyme-Substrate Complex Free Energy Change): -15.0 kJ/mol
+- Temperature (T): 300 K
+- Gas Constant (R): 8.314 J/(mol·K)
+- α1 (BEP Relationship Sensitivity Coefficient 1): 0.5
+- α2 (BEP Relationship Sensitivity Coefficient 2): 0.5
+- k10 (Base Rate Constant 1): 1.0
+- k20 (Base Rate Constant 2): 1.0
+- ET (Total Enzyme Concentration): 0.01 mM
 
-## 模型比较
+## Model Comparison
 
-本报告比较了三种模型的计算结果：
-1. Python实现的三步骤模型 (在Julia中重现)
-2. Julia实现的三步骤模型 (thermo_kinetics_modified.jl)
-3. Julia实现的四步骤模型 (thermo_kinetics_modified.jl)
+This report compares three model calculation results:
+1. Python-implemented three-step model (reproduced in Julia)
+2. Julia-implemented three-step model (thermo_kinetics_modified.jl)
+3. Julia-implemented four-step model (thermo_kinetics_modified.jl)
 
-## 计算结果
+## Calculation Results
 
-### 米氏常数 (Km) 比较
+### Michaelis Constant (Km) Comparison
 
-| 底物浓度 [mM] | Python三步骤 Km [μM] | Julia三步骤 Km [μM] | Julia四步骤 Km [μM] |
+| Substrate Concentration [mM] | Python Three-Step Km [μM] | Julia Three-Step Km [μM] | Julia Four-Step Km [μM] |
 |--------------|---------------------|---------------------|---------------------|
 | 0.001 | 7426 | 7426 | 2.036e+04 |
 | 0.01 | 7426 | 7426 | 2.036e+04 |
@@ -32,9 +32,9 @@
 | 10 | 7426 | 7426 | 2.036e+04 |
 | 100 | 7426 | 7426 | 2.036e+04 |
 
-### 反应速率 (v) 比较 [μM/s]
+### Reaction Rate (v) Comparison [μM/s]
 
-| 底物浓度 [mM] | Python三步骤 v [μM/s] | Julia三步骤 v [μM/s] | Julia四步骤 v [μM/s] |
+| Substrate Concentration [mM] | Python Three-Step v [μM/s] | Julia Three-Step v [μM/s] | Julia Four-Step v [μM/s] |
 |--------------|----------------------|----------------------|----------------------|
 | 0.001 | 0.2022 | 0.2022 | 2.634e-07 |
 | 0.01 | 2.019 | 2.019 | 2.633e-06 |
@@ -43,9 +43,9 @@
 | 10 | 861.6 | 861.6 | 0.001767 |
 | 100 | 1398 | 1398 | 0.004456 |
 
-### log10(反应速率) 比较 [log10(μM/s)]
+### log10(Reaction Rate) Comparison [log10(μM/s)]
 
-| 底物浓度 [mM] | Python三步骤 log10(v) | Julia三步骤 log10(v) | Julia四步骤 log10(v) |
+| Substrate Concentration [mM] | Python Three-Step log10(v) | Julia Three-Step log10(v) | Julia Four-Step log10(v) |
 |--------------|------------------------|------------------------|------------------------|
 | 0.001 | -0.6943 | -0.6943 | -6.579 |
 | 0.01 | 0.3052 | 0.3052 | -5.58 |
@@ -54,23 +54,23 @@
 | 10 | 2.935 | 2.935 | -2.753 |
 | 100 | 3.145 | 3.145 | -2.351 |
 
-## 图像比较
+## Image Comparison
 
-### 1. 模型参数比较图
+### 1. Model Parameter Comparison Plot
 
-![模型比较图](result/model_comparison_pycall.png)
+![Model Comparison Plot](result/model_comparison_pycall.png)
 
-### 2. 三步骤模型火山图
+### 2. Three-Step Model Volcano Plot
 
-![三步骤模型火山图](result/enzyme_activity_volcano_three_step.png)
+![Three-Step Model Volcano Plot](enzyme_activity_volcano_three_step.png)
 
-### 3. 四步骤模型火山图
+### 3. Four-Step Model Volcano Plot
 
-![四步骤模型火山图](result/enzyme_activity_volcano_four_step.png)
+![Four-Step Model Volcano Plot](result/enzyme_activity_volcano_four_step.png)
 
-## 结论
+## Conclusions
 
-1. **三步骤模型比较**：Python和Julia实现的三步骤模型结果非常接近，验证了两种实现的一致性。
-2. **四步骤模型特点**：Julia实现的四步骤模型与三步骤模型相比，在处理复杂反应机制时更为灵活，特别是在考虑产物抑制和多步骤反应时。
-3. **最佳Km值**：在不同底物浓度下，三步骤模型和四步骤模型预测的最佳Km值存在差异，这反映了模型对反应机制假设的敏感性。
+1. **Three-Step Model Comparison**: Python and Julia implementations of the three-step model show very close results, validating the consistency between implementations.
+2. **Four-Step Model Features**: Julia's four-step model implementation is more flexible compared to the three-step model, especially when considering product inhibition and multi-step reactions.
+3. **Optimal Km Values**: The three-step and four-step models predict different optimal Km values at different substrate concentrations, reflecting the models' sensitivity to reaction mechanism assumptions.
 

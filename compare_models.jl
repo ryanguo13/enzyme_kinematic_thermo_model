@@ -176,14 +176,14 @@ function compare_volcano_plots(S_range::Vector{Float64}, params::ThermoKineticsP
     for (k, S) in enumerate(S_range)
         # 三步骤模型
         p_three = contourf(ΔG1_range, ΔGT_range, v_matrix_three[:,:,k]',
-                 xlabel="ΔG₁ [kJ/mol]", ylabel="ΔG_T [kJ/mol]",
-                 title="三步骤模型 [S]=$(S) mM",
+                       xlabel="DeltaG1 (kJ/mol)", ylabel="DeltaGT (kJ/mol)", # Changed labels to ASCII
+                 title="Three-Step Model S=$(S) mM",  # Changed title to English and removed brackets
                  color=:jet, levels=50,
                  linewidth=0.5, contour_labels=false,
                  clims=clim)
         
         # 添加子图标签
-        annotate!(p_three, -18, 35, text(labels[k], :left, 14, :bold))
+        annotate!(p_three, -18, 35, text(labels[k], "left", 14)) # Changed :left symbol to string
         
         # 绘制Km = [S]线
         if !isempty(km_lines_three[k])
@@ -196,15 +196,15 @@ function compare_volcano_plots(S_range::Vector{Float64}, params::ThermoKineticsP
         
         # 四步骤模型
         p_four = contourf(ΔG1_range, ΔGT_range, v_matrix_four[:,:,k]',
-                xlabel="ΔG₁ [kJ/mol]", ylabel="ΔG_T [kJ/mol]",
-                title="四步骤模型 [S]=$(S) mM",
+                       xlabel="DeltaG1 (kJ/mol)", ylabel="DeltaGT (kJ/mol)", # Changed labels to ASCII
+                title="Four-Step Model S=$(S) mM", # Changed title to English and removed brackets
                 color=:jet, levels=50,
                 linewidth=0.5, contour_labels=false,
                 clims=clim)
-        
+
         # 添加子图标签
-        annotate!(p_four, -18, 35, text(labels[k+4], :left, 14, :bold))
-        
+        annotate!(p_four, -18, 35, text(labels[k+length(S_range)], "left", 14)) # Changed :left symbol to string
+
         # 绘制Km = [S]线
         if !isempty(km_lines_four[k])
             x_vals = [point[1] for point in km_lines_four[k]]
@@ -218,8 +218,8 @@ function compare_volcano_plots(S_range::Vector{Float64}, params::ThermoKineticsP
     # 组合子图为2x4布局
     final_plot = plot(plots..., layout=(2,4), size=(1600, 800), margin=10mm, dpi=300)
     
-    # 添加共享的颜色条，设置标题和范围
-    plot!(final_plot, colorbar=true, colorbar_title="log v [μM/s]", clims=clim,
+    # Add shared colorbar, set title and range
+    plot!(final_plot, colorbar=true, colorbar_title="log v (uM/s)", clims=clim,
           right_margin=15mm)  # 增加右侧边距以容纳颜色条
     
     return final_plot
@@ -246,7 +246,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     # 绘制比较图
     p = compare_volcano_plots(substrate_concentrations, params)
     
-    # 保存图像
+    # Save the image
     savefig(p, "enzyme_activity_volcano_comparison.png")
-    println("三步骤和四步骤模型的火山图比较已保存为 enzyme_activity_volcano_comparison.png")
+    println("Three-step and four-step model volcano plot comparison saved as enzyme_activity_volcano_
 end
